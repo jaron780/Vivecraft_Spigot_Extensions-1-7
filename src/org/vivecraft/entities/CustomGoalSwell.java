@@ -2,9 +2,9 @@ package org.vivecraft.entities;
 
 import org.vivecraft.VSE;
 
-import net.minecraft.server.v1_11_R1.EntityCreeper;
-import net.minecraft.server.v1_11_R1.EntityLiving;
-import net.minecraft.server.v1_11_R1.PathfinderGoal;
+import net.minecraft.server.v1_7_R4.EntityCreeper;
+import net.minecraft.server.v1_7_R4.EntityLiving;
+import net.minecraft.server.v1_7_R4.PathfinderGoal;
 
 public class CustomGoalSwell extends PathfinderGoal {
 
@@ -17,22 +17,24 @@ public class CustomGoalSwell extends PathfinderGoal {
 		a(1);
 	}
 	
-	public double creeperBlowyUppyRadius = 3.0f; //VIVE default is 3
+	public double creeperBlowyUppyRadius = 5.0f; //VIVE default is 3
 	
-	
+	@Override
 	public boolean a(){
 		VSE vse = (VSE.getPlugin(VSE.class));
 		EntityLiving localEntityLiving = this.a.getGoalTarget();
 		 if(vse.getConfig().getBoolean("CreeperRadius.enabled") == true){
-			 if((VSE.vivePlayers != null && localEntityLiving != null) && VSE.vivePlayers.containsKey(localEntityLiving.getUniqueID()))
-			 creeperBlowyUppyRadius = vse.getConfig().getDouble("CreeperRadius.radius");
+			 //if((VSE.vivePlayers != null && localEntityLiving != null) && VSE.vivePlayers.containsKey(localEntityLiving.getUniqueID()))
+			 if(localEntityLiving != null){
+				 creeperBlowyUppyRadius = vse.getConfig().getDouble("CreeperRadius.radius");
+			 }
 		 }
-		return (this.a.di() > 0) || ((localEntityLiving != null) && (this.a.h(localEntityLiving) < (creeperBlowyUppyRadius*creeperBlowyUppyRadius)));
+		return (this.a.cb() > 0) || ((localEntityLiving != null) && (this.a.f(localEntityLiving) < (creeperBlowyUppyRadius*creeperBlowyUppyRadius)));
 	}
 	
 	  public void c()
 	  {
-	    this.a.getNavigation().o();
+	    this.a.getNavigation().h();
 	    this.b = this.a.getGoalTarget();
 	  }
 	  
@@ -48,12 +50,12 @@ public class CustomGoalSwell extends PathfinderGoal {
 	      this.a.a(-1);
 	      return;
 	    }
-	    if (this.a.h(this.b) > 49.0D)
+	    if (this.a.f(this.b) > 49.0D)
 	    {
 	      this.a.a(-1);
 	      return;
 	    }
-	    if (!this.a.getEntitySenses().a(this.b))
+	    if (!this.a.getEntitySenses().canSee(this.b))
 	    {
 	      this.a.a(-1);
 	      return;

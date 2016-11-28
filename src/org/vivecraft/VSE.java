@@ -2,13 +2,13 @@ package org.vivecraft;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.craftbukkit.v1_11_R1.entity.CraftCreeper;
+import org.bukkit.craftbukkit.v1_7_R4.entity.CraftCreeper;
+import org.bukkit.craftbukkit.v1_7_R4.util.UnsafeList;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -18,8 +18,8 @@ import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import net.milkbowl.vault.permission.Permission;
-import net.minecraft.server.v1_11_R1.EntityCreeper;
-import net.minecraft.server.v1_11_R1.PathfinderGoalSelector;
+import net.minecraft.server.v1_7_R4.EntityCreeper;
+import net.minecraft.server.v1_7_R4.PathfinderGoalSelector;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.spigotmc.SpigotConfig;
@@ -52,75 +52,100 @@ public class VSE extends JavaPlugin implements Listener {
 		this.getCommand("vse").setExecutor(new ViveCommand(this));
 		getServer().getMessenger().registerIncomingPluginChannel(this, CHANNEL, new VivecraftNetworkListener(this));
 		getServer().getMessenger().registerOutgoingPluginChannel(this, CHANNEL);
-		
+
 		getServer().getPluginManager().registerEvents(this, this);
 		getServer().getPluginManager().registerEvents(new VivecraftCombatListener(this), this);
 		getServer().getPluginManager().registerEvents(new VivecraftItemListener(), this);
-		
+
 		SpigotConfig.movedWronglyThreshold = 10;
-		SpigotConfig.movedTooQuicklyMultiplier = 64;
+		SpigotConfig.movedTooQuicklyThreshold = 64;
 
 		task = getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
 			public void run() {
 				sendPosData();
 			}
 		}, 20, 1);
-		
-		CheckForCreeper();
+
+		try {
+			CheckForCreeper();
+		} catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException e) {
+			e.printStackTrace();
+		}
 
 	}
-		
-	public static Object getPrivateField(String fieldName, Class<PathfinderGoalSelector> clazz, Object object)
-	{
-	Field field;
-	Object o = null;
-	try
-	{
-		field = clazz.getDeclaredField(fieldName);
-		field.setAccessible(true);
-		o = field.get(object);
+
+	public static Object getPrivateField(String fieldName, Class<PathfinderGoalSelector> clazz, Object object) {
+		Field field;
+		Object o = null;
+		try {
+			field = clazz.getDeclaredField(fieldName);
+			field.setAccessible(true);
+			o = field.get(object);
+		} catch (NoSuchFieldException e) {
+			e.printStackTrace();
+		} catch (IllegalAccessException e) {
+			e.printStackTrace();
+		}
+		return o;
 	}
-	catch(NoSuchFieldException e)
-	{
-		e.printStackTrace();
-	}
-	catch(IllegalAccessException e)
-	{
-		e.printStackTrace();
-	}
-	return o;
-	}
-	  
+
 	@EventHandler
-    public void onEvent(CreatureSpawnEvent event) {
-		EditCreeper(event.getEntity());
+	public void onEvent(CreatureSpawnEvent event) {
+		try {
+			EditCreeper(event.getEntity());
+		} catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException e) {
+			e.printStackTrace();
+		}
 	}
-	
-	public void CheckForCreeper(){
+
+	public void CheckForCreeper() throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException {
 		List<World> wrl = this.getServer().getWorlds();
-		for(World world: wrl){
-			for(Entity e: world.getLivingEntities()){
-				if(e.getType() == EntityType.CREEPER){
+		for (World world : wrl) {
+			for (Entity e : world.getLivingEntities()) {
+				if (e.getType() == EntityType.CREEPER) {
 					EditCreeper(e);
 				}
 			}
 		}
 	}
+
+	private static Field getField(Class<?> clazz, String fieldName) throws NoSuchFieldException {
+		try {
+			return clazz.getDeclaredField(fieldName);
+		} catch (NoSuchFieldException e) {
+			Class<?> superClass = clazz.getSuperclass();
+			if (superClass == null) {
+				throw e;
+			} else {
+				return getField(superClass, fieldName);
+			}
+		}
+	}
+	class SomeDerivedClass extends EntityCreeper {
+		  SomeDerivedClass(net.minecraft.server.v1_7_R4.World value) {
+		    super(value);
+		  }
+		}
 	
-	public void EditCreeper(Entity entity){
-		if(entity.getType() == EntityType.CREEPER){	
+	
+	public void EditCreeper(Entity entity) throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException {
+		if (entity.getType() == EntityType.CREEPER) {
 			EntityCreeper e = ((CraftCreeper) entity).getHandle();
-			@SuppressWarnings("rawtypes")
-			LinkedHashSet goalB = (LinkedHashSet )getPrivateField("b", PathfinderGoalSelector.class, e.goalSelector);
+			Object myObj = e;
+		    Class<?> myClass = myObj.getClass();
+		    Field myField = getField(myClass, "goalSelector");
+		    myField.setAccessible(true); //required if field is not normally accessible
+			UnsafeList<?> goalB = (UnsafeList<?>) getPrivateField("b", PathfinderGoalSelector.class, myField.get(myObj));
 			int x = 0;
-			for(Object b: goalB){
-				if(x==1){
+			for (Object b : goalB) {
+				if (x == 1) {
 					goalB.remove(b);
 					break;
 				}
-				x+=1;
+				x += 1;
 			}
-		    e.goalSelector.a(2, new CustomGoalSwell(e));
+	
+			((PathfinderGoalSelector) myField.get(myObj)).a(2, new CustomGoalSwell(e));
 		}
 	}
 
@@ -132,21 +157,22 @@ public class VSE extends JavaPlugin implements Listener {
 				continue; // dunno y but just in case.
 
 			for (VivePlayer v : vivePlayers.values()) {
-			
-					if (v == sendTo || v == null || v.player == null || !v.player.isOnline() || v.hmdData == null || v.controller0data == null || v.controller1data == null){
-						continue;
-					}
-					
-					double d = sendTo.player.getLocation().distanceSquared(v.player.getLocation());
-	
-					if (d < 256 * 256) {
-						// TODO: optional distance value?
-						sendTo.player.sendPluginMessage(this, CHANNEL, v.getUberPacket());
+
+				if (v == sendTo || v == null || v.player == null || !v.player.isOnline() || v.hmdData == null
+						|| v.controller0data == null || v.controller1data == null) {
+					continue;
+				}
+
+				double d = sendTo.player.getLocation().distanceSquared(v.player.getLocation());
+
+				if (d < 256 * 256) {
+					// TODO: optional distance value?
+					sendTo.player.sendPluginMessage(this, CHANNEL, v.getUberPacket());
 				}
 			}
 		}
 	}
-	
+
 	@Override
 	public void onDisable() {
 		saveConfig();
@@ -181,9 +207,10 @@ public class VSE extends JavaPlugin implements Listener {
 			}, getConfig().getInt("vive-only.waittime"));
 		}
 	}
-	
-	public static boolean isVive(Player p){
-		if(p == null) return false;
+
+	public static boolean isVive(Player p) {
+		if (p == null)
+			return false;
 		return vivePlayers.containsKey(p.getUniqueId());
 	}
 
